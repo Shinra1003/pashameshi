@@ -78,12 +78,14 @@ export default function Home() {
         {renderContent()}
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-around items-center z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
-        <TabButton label="食材管理" icon={<LayoutGrid size={22} />} isActive={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} />
-        <TabButton label="パシャッ！" icon={<Camera size={22} />} isActive={activeTab === 'camera'} onClick={() => setActiveTab('camera')} />
-        <TabButton label="レシピ" icon={<Utensils size={22} />} isActive={activeTab === 'recipe'} onClick={() => setActiveTab('recipe')} />
-        <TabButton label="買い物" icon={<ShoppingCart size={22} />} isActive={activeTab === 'shopping'} onClick={() => setActiveTab('shopping')} />
-        <TabButton label="設定" icon={<Settings size={22} />} isActive={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 py-3 flex justify-center items-center z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
+        <div className="w-full flex items-center">
+          <TabButton label="食材管理" icon={<LayoutGrid size={22} />} isActive={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} />
+          <TabButton label="パシャッ！" icon={<Camera size={22} />} isActive={activeTab === 'camera'} onClick={() => setActiveTab('camera')} />
+          <TabButton label="レシピ" icon={<Utensils size={22} />} isActive={activeTab === 'recipe'} onClick={() => setActiveTab('recipe')} />
+          <TabButton label="買い物" icon={<ShoppingCart size={22} />} isActive={activeTab === 'shopping'} onClick={() => setActiveTab('shopping')} />
+          <TabButton label="設定" icon={<Settings size={22} />} isActive={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+        </div>
       </nav>
     </main>
   );
@@ -93,12 +95,16 @@ function TabButton({ label, icon, isActive, onClick }: { label: string, icon: an
   return (
     <button 
       onClick={onClick}
-      className={`flex flex-col items-center gap-1 transition-all duration-300 ${
+      // flex-1 を追加：これで全てのボタンが同じ横幅になります
+      className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all duration-300 ${
         isActive ? 'text-orange-500 scale-110' : 'text-gray-300'
       }`}
     >
-      {icon}
-      <span className="text-[9px] font-black">{label}</span>
+      {/* アイコンのサイズによる微差を吸収するために div で囲むのがおすすめ */}
+      <div className="flex items-center justify-center w-6 h-6">
+        {icon}
+      </div>
+      <span className="text-[9px] font-black whitespace-nowrap">{label}</span>
     </button>
   );
 }

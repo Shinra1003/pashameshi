@@ -99,20 +99,40 @@ export default function CameraCapture() {
   const saveToSupabase = async () => {
     if (!analysisResult) return;
     setIsAnalyzing(true);
+
     try {
-      // 1. 同名・同保存タイプの既存食材を探す
-      const { data: existingItem, error: fetchError } = await supabase
-        .from('ingredients')
-        .select('id, quantity')
-        .eq('name', analysisResult.name)
-        .eq('storage_type', storageType)
-        .eq('expiry_date', analysisResult.expiryDate)
+      // 1. ユーザー情報を取得
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("ユーザーが見つかりません");
+
+      // 2. プロフィールから現在の所属グループを取得
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('group_id')
+        .eq('id', user.id)
         .maybeSingle();
 
+      if (profileError) throw profileError;
+      const currentGroupId = profile?.group_id || null;
+
+      // 3. 重複チェック（既存食材を探す）
+      // 決定表ルール：共有中ならグループ内で、個人なら自分のデータ内で探す
+      let fetchQuery = supabase.from('ingredients').select('id, quantity')
+        .eq('name', analysisResult.name)
+        .eq('storage_type', storageType)
+        .eq('expiry_date', analysisResult.expiryDate);
+
+      if (currentGroupId) {
+        fetchQuery = fetchQuery.eq('group_id', currentGroupId);
+      } else {
+        fetchQuery = fetchQuery.eq('user_id', user.id).is('group_id', null);
+      }
+
+      const { data: existingItem, error: fetchError } = await fetchQuery.maybeSingle();
       if (fetchError) throw fetchError;
 
       if (existingItem) {
-        // 既にある場合は数量を加算して更新
+        // --- 更新処理 ---
         const { error: updateError } = await supabase
           .from('ingredients')
           .update({ quantity: existingItem.quantity + analysisResult.quantity })
@@ -120,7 +140,8 @@ export default function CameraCapture() {
         if (updateError) throw updateError;
         alert(`「${analysisResult.name}」の数量を追加しました！`);
       } else {
-        // 新規追加
+        // --- 新規登録処理 ---
+        // 【重要】ここで決定表ルール通りのラベルを貼る
         const { error: insertError } = await supabase
           .from('ingredients')
           .insert([{ 
@@ -129,17 +150,22 @@ export default function CameraCapture() {
             quantity: analysisResult.quantity,
             unit: analysisResult.unit,
             expiry_date: analysisResult.expiryDate,
-            storage_type: storageType 
+            storage_type: storageType,
+            user_id: user.id,        // 誰が登録したか（不変）
+            group_id: currentGroupId  // どこに所属するか（個人ならnull）
           }]);
         if (insertError) throw insertError;
-        alert(`「${analysisResult.name}」を新規保存しました！`);
+        alert(`「${analysisResult.name}」を保存しました！`);
       }
       
+      // 成功後のリセット
       setCapturedImage(null);
       setAnalysisResult(null);
       window.location.reload(); 
-    } catch (error) {
-      alert("保存に失敗しました。");
+
+    } catch (error: any) {
+      console.error("Save error:", error);
+      alert(`保存に失敗しました: ${error.message || "不明なエラー"}`);
     } finally {
       setIsAnalyzing(false);
     }

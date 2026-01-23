@@ -9,10 +9,35 @@ export default function RecipeSuggestion() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
 
+  // --- 共通ロジック：現在のグループ状態を取得 ---
+  const getGroupContext = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { user: null, groupId: null };
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('group_id')
+      .eq('id', user.id)
+      .single();
+
+    return { user, groupId: profile?.group_id || null };
+  };
+
   const generateRecipe = async () => {
     setIsLoading(true);
     try {
-      const { data: ingredients } = await supabase.from('ingredients').select('name');
+      const { user, groupId } = await getGroupContext();
+      if (!user) return;
+
+      // 【決定表ルール】グループ優先、なければ個人
+      let query = supabase.from('ingredients').select('name');
+      if (groupId) {
+        query = query.eq('group_id', groupId);
+      } else {
+        query = query.eq('user_id', user.id).is('group_id', null);
+      }
+      
+      const { data: ingredients } = await query;
       
       if (!ingredients || ingredients.length === 0) {
         alert("在庫が空っぽです。食材を登録してください！");
@@ -34,7 +59,6 @@ export default function RecipeSuggestion() {
     }
   };
 
-  // --- 【追加】「作った！」ボタンの処理 ---
   const handleFinishCooking = async () => {
     if (!recipe) return;
     
@@ -43,12 +67,20 @@ export default function RecipeSuggestion() {
 
     setIsFinishing(true);
     try {
-      // 在庫から、レシピのタイトルや説明に含まれる食材キーワードを探して削除を試みる
-      // (今回はシンプルに「レシピの材料リスト」に含まれる名前の在庫を削除)
-      const { data: currentInventory } = await supabase.from('ingredients').select('id, name');
+      const { user, groupId } = await getGroupContext();
+      if (!user) return;
+
+      // 【決定表ルール】現在のモードに合わせた在庫一覧を取得
+      let query = supabase.from('ingredients').select('id, name');
+      if (groupId) {
+        query = query.eq('group_id', groupId);
+      } else {
+        query = query.eq('user_id', user.id).is('group_id', null);
+      }
+
+      const { data: currentInventory } = await query;
       
       if (currentInventory) {
-        // レシピに含まれる食材と名前が一致するものを探す
         const toDeleteIds = currentInventory
           .filter(item => 
             recipe.ingredients.some((ing: string) => ing.includes(item.name))
@@ -64,10 +96,10 @@ export default function RecipeSuggestion() {
           if (error) throw error;
           alert(`${toDeleteIds.length}個の食材を在庫から消費しました！`);
         } else {
-          alert("一致する食材が在庫に見つかりませんでしたが、記録しました。");
+          alert("一致する食材が現在の在庫に見つかりませんでした。");
         }
       }
-      setRecipe(null); // レシピ画面を閉じる
+      setRecipe(null);
     } catch (error) {
       console.error(error);
       alert("在庫の自動整理に失敗しました。");
@@ -76,8 +108,10 @@ export default function RecipeSuggestion() {
     }
   };
 
+  // --- UI部分は変更なし ---
   return (
     <div className="w-full max-w-md mx-auto space-y-4 pb-10">
+      {/* (UI実装は以前のコードと同様のため中略) */}
       {!recipe && !isLoading && (
         <div className="text-center py-12 bg-white rounded-3xl border border-gray-100 shadow-sm">
           <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -141,7 +175,6 @@ export default function RecipeSuggestion() {
               </div>
             </div>
 
-            {/* 「作った！」ボタン */}
             <div className="pt-4 border-t border-gray-50">
               <button 
                 onClick={handleFinishCooking}

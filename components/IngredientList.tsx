@@ -11,11 +11,27 @@ export default function IngredientList() {
 
   const fetchIngredients = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('ingredients')
-      .select('*')
-      .eq('storage_type', activeFilter)
-      .order('expiry_date', { ascending: true });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // 1. プロフィールから現在の所属グループを取得
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('group_id')
+      .eq('id', user.id)
+      .single();
+
+    const groupId = profile?.group_id;
+    let query = supabase.from('ingredients').select('*').eq('storage_type', activeFilter);
+
+    // 2. 【決定表ロジック】グループIDがあれば共有モード、なければ個人モード
+    if (groupId) {
+      query = query.eq('group_id', groupId); // 共有モード：グループ優先
+    } else {
+      query = query.eq('user_id', user.id);    // 個人モード：自分のIDなら何でもOK
+    }
+
+    const { data, error } = await query.order('expiry_date', { ascending: true });
     
     if (!error && data) setIngredients(data);
     setLoading(false);
