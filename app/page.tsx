@@ -6,11 +6,11 @@ import CameraCapture from '@/components/CameraCapture';
 import IngredientList from '@/components/IngredientList';
 import RecipeSuggestion from '@/components/RecipeSuggestion';
 import ShoppingList from '@/components/ShoppingList';
+import SettingsTab from '@/components/SettingsTab'; // 追加
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('inventory');
 
-  // タブに応じたコンテンツを表示
   const renderContent = () => {
     switch (activeTab) {
       case 'inventory':
@@ -28,7 +28,7 @@ export default function Home() {
       case 'camera':
         return (
           <div className="animate-in zoom-in-95 duration-300">
-            <h2 className="text-lg font-bold text-gray-700 mb-4 px-2 flex items-center gap-2">
+            <h2 className="text-lg font-black text-gray-800 mb-4 px-2 flex items-center gap-2">
               📸 食材を登録
             </h2>
             <CameraCapture />
@@ -43,21 +43,22 @@ export default function Home() {
             <RecipeSuggestion />
           </div>
         );
-      case 'shopping': // タブ名を shopping に変更した場合
+      case 'shopping':
         return (
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 pb-10">
             <h2 className="text-lg font-black text-gray-800 mb-4 px-4 flex items-center gap-2">
               🛒 買い物リスト
             </h2>
             <ShoppingList />
           </div>
         );
-      case 'settings':
+      case 'settings': // 設定タブの内容を差し替え
         return (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-            <Settings size={48} className="mb-4 opacity-20" />
-            <p className="font-bold">設定</p>
-            <p className="text-xs">アカウント管理など</p>
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 pb-10">
+            <h2 className="text-lg font-black text-gray-800 mb-4 px-4 flex items-center gap-2">
+              ⚙ 設定
+            </h2>
+            <SettingsTab />
           </div>
         );
       default:
@@ -77,38 +78,12 @@ export default function Home() {
         {renderContent()}
       </div>
 
-      {/* 下部ナビゲーションバー */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-around items-center z-50 shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
-        <TabButton 
-          label="食材管理" 
-          icon={<LayoutGrid size={22} />} 
-          isActive={activeTab === 'inventory'} 
-          onClick={() => setActiveTab('inventory')} 
-        />
-        <TabButton 
-          label="パシャッ！" 
-          icon={<Camera size={22} />} 
-          isActive={activeTab === 'camera'} 
-          onClick={() => setActiveTab('camera')} 
-        />
-        <TabButton 
-          label="レシピ" 
-          icon={<Utensils size={22} />} 
-          isActive={activeTab === 'recipe'} 
-          onClick={() => setActiveTab('recipe')} 
-        />
-        <TabButton 
-          label="買い物リスト" 
-          icon={<ShoppingCart size={22} />} 
-          isActive={activeTab === 'shopping'} 
-          onClick={() => setActiveTab('shopping')} 
-        />
-        <TabButton 
-          label="設定" 
-          icon={<Settings size={22} />} 
-          isActive={activeTab === 'settings'} 
-          onClick={() => setActiveTab('settings')} 
-        />
+        <TabButton label="食材管理" icon={<LayoutGrid size={22} />} isActive={activeTab === 'inventory'} onClick={() => setActiveTab('inventory')} />
+        <TabButton label="パシャッ！" icon={<Camera size={22} />} isActive={activeTab === 'camera'} onClick={() => setActiveTab('camera')} />
+        <TabButton label="レシピ" icon={<Utensils size={22} />} isActive={activeTab === 'recipe'} onClick={() => setActiveTab('recipe')} />
+        <TabButton label="買い物" icon={<ShoppingCart size={22} />} isActive={activeTab === 'shopping'} onClick={() => setActiveTab('shopping')} />
+        <TabButton label="設定" icon={<Settings size={22} />} isActive={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
       </nav>
     </main>
   );
