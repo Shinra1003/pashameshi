@@ -275,7 +275,7 @@ export default function SettingsTab({ onStatusChange }: SettingsTabProps) {
       </div>
 
       <p className="text-center text-[9px] font-bold text-gray-300 uppercase tracking-widest">
-        Pashameshi v1.0.1
+        Pashameshi v1.0.2
       </p>
     </div>
   );

@@ -9,7 +9,6 @@ export default function RecipeSuggestion() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
 
-  // --- 共通ロジック：現在のグループ状態を取得 ---
   const getGroupContext = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { user: null, groupId: null };
@@ -29,8 +28,7 @@ export default function RecipeSuggestion() {
       const { user, groupId } = await getGroupContext();
       if (!user) return;
 
-      // 【決定表ルール】グループ優先、なければ個人
-      let query = supabase.from('ingredients').select('name');
+      let query = supabase.from('ingredients').select('name, quantity, unit');
       if (groupId) {
         query = query.eq('group_id', groupId);
       } else {
@@ -59,10 +57,22 @@ export default function RecipeSuggestion() {
     }
   };
 
+  // --- 分数や小数を解析して計算する関数 ---
+  const parseAmount = (text: string): number => {
+    // 1. 分数 (1/2, 1/4など) を探して小数に変換
+    const fractionMatch = text.match(/(\d+)\/(\d+)/);
+    if (fractionMatch) {
+      return parseFloat(fractionMatch[1]) / parseFloat(fractionMatch[2]);
+    }
+    // 2. 小数または整数 (0.5, 1など) を抽出
+    const numberMatch = text.match(/\d+(\.\d+)?/);
+    return numberMatch ? parseFloat(numberMatch[0]) : 0;
+  };
+
   const handleFinishCooking = async () => {
     if (!recipe) return;
     
-    const confirmDone = confirm(`「${recipe.title}」を完成させましたか？\n使用した在庫を整理します。`);
+    const confirmDone = confirm(`「${recipe.title}」を完成させましたか？\n使用した分量を在庫から差し引きます。`);
     if (!confirmDone) return;
 
     setIsFinishing(true);
@@ -70,8 +80,7 @@ export default function RecipeSuggestion() {
       const { user, groupId } = await getGroupContext();
       if (!user) return;
 
-      // 【決定表ルール】現在のモードに合わせた在庫一覧を取得
-      let query = supabase.from('ingredients').select('id, name');
+      let query = supabase.from('ingredients').select('*');
       if (groupId) {
         query = query.eq('group_id', groupId);
       } else {
@@ -81,37 +90,40 @@ export default function RecipeSuggestion() {
       const { data: currentInventory } = await query;
       
       if (currentInventory) {
-        const toDeleteIds = currentInventory
-          .filter(item => 
-            recipe.ingredients.some((ing: string) => ing.includes(item.name))
-          )
-          .map(item => item.id);
-
-        if (toDeleteIds.length > 0) {
-          const { error } = await supabase
-            .from('ingredients')
-            .delete()
-            .in('id', toDeleteIds);
+        for (const item of currentInventory) {
+          const usedMaterial = recipe.ingredients.find((ing: string) => ing.includes(item.name));
           
-          if (error) throw error;
-          alert(`${toDeleteIds.length}個の食材を在庫から消費しました！`);
-        } else {
-          alert("一致する食材が現在の在庫に見つかりませんでした。");
+          if (usedMaterial) {
+            const usedAmount = parseAmount(usedMaterial);
+
+            if (usedAmount > 0) {
+              // 浮動小数点の計算誤差を防ぐため、小数点第2位程度で丸める
+              const newQuantity = Math.max(0, Math.round((item.quantity - usedAmount) * 100) / 100);
+
+              if (newQuantity <= 0) {
+                await supabase.from('ingredients').delete().eq('id', item.id);
+              } else {
+                await supabase.from('ingredients').update({ quantity: newQuantity }).eq('id', item.id);
+              }
+            } else {
+              // 数量が特定できない場合はそのまま削除（あるいは警告）
+              await supabase.from('ingredients').delete().eq('id', item.id);
+            }
+          }
         }
+        alert("在庫の数量を更新しました！");
       }
       setRecipe(null);
     } catch (error) {
       console.error(error);
-      alert("在庫の自動整理に失敗しました。");
+      alert("在庫の整理に失敗しました。");
     } finally {
       setIsFinishing(false);
     }
   };
 
-  // --- UI部分は変更なし ---
   return (
     <div className="w-full max-w-md mx-auto space-y-4 pb-10">
-      {/* (UI実装は以前のコードと同様のため中略) */}
       {!recipe && !isLoading && (
         <div className="text-center py-12 bg-white rounded-3xl border border-gray-100 shadow-sm">
           <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -183,7 +195,7 @@ export default function RecipeSuggestion() {
               >
                 {isFinishing ? <Loader2 className="animate-spin" /> : <><Utensils size={20} /> 作った！(在庫を減らす)</>}
               </button>
-              <p className="text-[9px] text-gray-300 text-center mt-3 font-bold">※使用した食材が在庫から自動削除されます</p>
+              <p className="text-[9px] text-gray-300 text-center mt-3 font-bold">※分量（分数・小数対応）を自動計算して差し引きます</p>
             </div>
           </div>
         </div>

@@ -230,7 +230,7 @@ export default function ShoppingList() {
                 disabled={isLoading}
                 className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-200 active:scale-95 transition flex items-center justify-center gap-2"
               >
-                {isLoading ? <Loader2 className="animate-spin" /> : "冷蔵庫へ入れる"}
+                {isLoading ? <Loader2 className="animate-spin" /> : "入れる"}
               </button>
             </div>
           </div>
