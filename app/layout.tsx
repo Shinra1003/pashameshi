@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,10 +15,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "パシャ飯",
   description: "撮るだけ食材管理",
-  manifest: "/manifest.json", // これを追加
-  themeColor: "#f97316",       // これを追加（オレンジ色）
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1", // ズーム防止
+  manifest: "/manifest.json"
 };
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#f97316"
+}
 
 export default function RootLayout({
   children,

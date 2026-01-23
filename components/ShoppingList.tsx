@@ -153,7 +153,16 @@ export default function ShoppingList() {
           </div>
           <div className="flex-[2] flex items-center bg-gray-50 rounded-xl px-2">
             <span className="text-[10px] font-black text-gray-400 mr-2">UNIT</span>
-            <input list="shopping-units" value={newItem.unit} onChange={(e) => setNewItem({...newItem, unit: e.target.value})} className="w-full bg-transparent p-2 outline-none font-bold text-sm" />
+            <input 
+              list="shopping-units" 
+              value={newItem.unit} 
+              onChange={(e) => setNewItem({...newItem, unit: e.target.value})} 
+              // フォーカス時に一旦空にする
+              onFocus={(e) => e.target.value = ''}
+              // 何も入力されなかったら元の状態（newItem.unit）に戻す
+              onBlur={(e) => { if(!e.target.value) e.target.value = newItem.unit }}
+              className="w-full bg-transparent p-2 outline-none font-bold text-sm" 
+            />
           </div>
           <button onClick={addItem} className="flex-1 p-3 bg-orange-500 text-white rounded-xl active:scale-95 transition flex justify-center"><Plus size={20} /></button>
         </div>
@@ -188,12 +197,18 @@ export default function ShoppingList() {
             </div>
             <p className="text-sm text-gray-500 mb-4 font-bold">「{selectedItem.name}」の期限</p>
             <div className="relative mb-6">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-400" size={18} />
+              {/* アイコンを配置し、クリックイベントを透過させる(pointer-events-none) */}
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-400 pointer-events-none z-10" size={18} />
               <input 
                 type="date"
                 value={expiryDate}
                 onChange={(e) => setExpiryDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-orange-50 rounded-xl font-bold text-orange-600 outline-none focus:ring-2 focus:ring-orange-300"
+                className="w-full pl-12 pr-4 py-3 bg-orange-50 rounded-xl font-bold text-orange-600 outline-none focus:ring-2 focus:ring-orange-300 appearance-none"
+                style={{
+                  // iPhoneなどのSafariでカレンダーアイコンが重なるのを防ぐための指定
+                  WebkitAppearance: 'none',
+                  minHeight: '3rem'
+                }}
               />
             </div>
             <button 
@@ -208,7 +223,14 @@ export default function ShoppingList() {
       )}
 
       <datalist id="shopping-units">
-        <option value="個" /><option value="本" /><option value="g" /><option value="パック" /><option value="袋" />
+          <option value="個" />
+          <option value="本" />
+          <option value="g" />
+          <option value="パック" />
+          <option value="枚" />
+          <option value="袋" />
+          <option value="玉" />
+          <option value="ml" />
       </datalist>
     </div>
   );
