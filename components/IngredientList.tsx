@@ -87,20 +87,25 @@ export default function IngredientList() {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto px-2">
-      <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-xl">
-        {['冷蔵', '冷凍', '常温'].map((type) => (
+    <div className="w-full max-w-md mx-auto">
+      {/* タブ部分：背景 #F2F2F7, 角丸 22px */}
+      <div className="flex gap-1 mb-8 bg-[#F2F2F7] p-1.5 rounded-[22px]">
+        {[
+          { label: '冷蔵', icon: <Snowflake size={16} /> },
+          { label: '冷凍', icon: <Box size={16} /> },
+          { label: '常温', icon: <Thermometer size={16} /> }
+        ].map((tab) => (
           <button
-            key={type}
-            onClick={() => setActiveFilter(type)}
-            className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-black transition-all ${
-              activeFilter === type ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+            key={tab.label}
+            onClick={() => setActiveFilter(tab.label)}
+            className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-[16px] text-sm font-black transition-all ${
+              activeFilter === tab.label 
+                ? 'bg-white text-orange-500 shadow-[0_2px_8px_rgba(0,0,0,0.04)]' 
+                : 'text-[#8E8E93]'
             }`}
           >
-            {type === '冷蔵' && <Snowflake size={14} />}
-            {type === '冷凍' && <Box size={14} />}
-            {type === '常温' && <Thermometer size={14} />}
-            {type}
+            {tab.icon}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -108,8 +113,11 @@ export default function IngredientList() {
       {loading ? (
         <div className="text-center py-10 text-gray-400 animate-pulse text-sm font-bold">読み込み中...</div>
       ) : ingredients.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-3xl border-2 border-dashed border-gray-100">
-          <p className="text-gray-300 font-bold text-sm">{activeFilter}庫は空っぽです</p>
+        /* 空の状態：背景白、点線枠 #E5E5EA、角丸 45px */
+        <div className="mt-2 flex items-center justify-center min-h-[220px] bg-white rounded-[45px] border-[2px] border-dashed border-[#E5E5EA]">
+          <p className="text-[#C7C7CC] font-black text-base tracking-widest text-center">
+            {activeFilter}庫は空っぽです
+          </p>
         </div>
       ) : (
         <div className="grid gap-3">
@@ -122,15 +130,11 @@ export default function IngredientList() {
                   <div className="flex gap-2">
                     <input className="flex-1 p-2 rounded-lg border-none font-bold text-sm outline-none bg-white" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} />
                     <input type="number" className="w-14 p-2 rounded-lg border-none font-bold text-sm text-center outline-none bg-white" value={editForm.quantity} onChange={(e) => setEditForm({...editForm, quantity: Number(e.target.value)})} />
-                    
-                    {/* 単位入力欄：datalistを適用 */}
                     <input 
                       list="unit-choices-list" 
                       className="w-16 p-2 rounded-lg border-none font-bold text-sm outline-none bg-white text-center" 
                       value={editForm.unit} 
                       onChange={(e) => setEditForm({...editForm, unit: e.target.value})}
-                      onFocus={(e) => e.target.value = ''}
-                      onBlur={(e) => { if(!e.target.value) e.target.value = editForm.unit }}
                     />
                   </div>
                   <div className="flex items-center justify-between">
@@ -186,7 +190,7 @@ export default function IngredientList() {
         </div>
       )}
 
-      {/* 共通の単位候補リスト */}
+      {/* 単位の datalist */}
       <datalist id="unit-choices-list">
         <option value="個" />
         <option value="本" />

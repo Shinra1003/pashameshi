@@ -2,9 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { LogOut, User, ChevronRight, Bell, Users, ShieldCheck, HelpCircle, Copy, Check, UserPlus, LogOut as LeaveIcon, Loader2 } from 'lucide-react';
+import { LogOut, User, ChevronRight, Users, ShieldCheck, HelpCircle, Copy, Check, LogOut as LeaveIcon, Loader2, Trash2 } from 'lucide-react';
 
-export default function SettingsTab() {
+// プロップスの型定義を追加
+interface SettingsTabProps {
+  onStatusChange?: () => void;
+}
+
+export default function SettingsTab({ onStatusChange }: SettingsTabProps) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [groupId, setGroupId] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState('');
@@ -38,7 +43,7 @@ export default function SettingsTab() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const newGroupId = crypto.randomUUID(); // 新しいユニークIDを発行
+      const newGroupId = crypto.randomUUID();
       const { error } = await supabase
         .from('profiles')
         .update({ group_id: newGroupId })
@@ -46,6 +51,10 @@ export default function SettingsTab() {
 
       if (error) throw error;
       setGroupId(newGroupId);
+      
+      // ヘッダーを更新
+      if (onStatusChange) onStatusChange();
+      
       alert("新しいグループを作成しました！");
     } catch (error) {
       alert("グループ作成に失敗しました。");
@@ -70,7 +79,11 @@ export default function SettingsTab() {
       if (error) throw error;
       setGroupId(inviteCode.trim());
       setInviteCode('');
-      alert("グループに参加しました！決定表のルールに基づき、個人在庫は一時的に隠れます。");
+      
+      // ヘッダーを更新
+      if (onStatusChange) onStatusChange();
+      
+      alert("グループに参加しました！個人在庫は一時的に隠れます。");
     } catch (error) {
       alert("参加に失敗しました。コードが正しいか確認してください。");
     } finally {
@@ -80,7 +93,7 @@ export default function SettingsTab() {
 
   // グループから脱退
   const leaveGroup = async () => {
-    const confirmLeave = confirm("グループから脱退しますか？決定表のルールに基づき、個人の「にんじん」が再び表示されるようになります。");
+    const confirmLeave = confirm("グループから脱退しますか？個人在庫が再び表示されるようになります。");
     if (!confirmLeave) return;
 
     setIsLoading(true);
@@ -95,6 +108,10 @@ export default function SettingsTab() {
 
       if (error) throw error;
       setGroupId(null);
+      
+      // ヘッダーを更新
+      if (onStatusChange) onStatusChange();
+      
       alert("脱退しました。個人モードに戻ります。");
     } catch (error) {
       alert("脱退に失敗しました。");
@@ -117,6 +134,44 @@ export default function SettingsTab() {
     window.location.href = '/login';
   };
 
+  // --- アカウント削除機能 ---
+  const handleDeleteAccount = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if (groupId) {
+      const proceed = confirm(
+        "※あなたは現在グループに参加しています。退会すると、あなたが登録した共有食材や買い物リストもすべて消去されます。\n\nこのまま退会を進めますか？"
+      );
+      if (!proceed) return;
+    }
+
+    const confirm1 = confirm("本当にアカウントを完全に削除しますか？");
+    if (!confirm1) return;
+
+    const confirm2 = confirm(
+      "【最終確認】アカウントを削除すると、全てのデータが消去され復元できません。本当によろしいですか？"
+    );
+    if (!confirm2) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      alert("アカウントを削除しました。ご利用ありがとうございました。");
+      window.location.href = '/login';
+    } catch (error: any) {
+      alert(`エラーが発生しました: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-10 px-4">
       
@@ -137,7 +192,6 @@ export default function SettingsTab() {
         
         <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-50 space-y-4">
           {!groupId ? (
-            // 未所属の状態
             <div className="space-y-4">
               <div className="text-center py-2">
                 <p className="text-xs text-gray-500 font-bold mb-4">現在は個人モードです</p>
@@ -170,7 +224,6 @@ export default function SettingsTab() {
               </div>
             </div>
           ) : (
-            // グループ所属中の状態
             <div className="space-y-4">
               <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
                 <p className="text-[10px] font-black text-blue-400 uppercase mb-2">Your Group Invite Code</p>
@@ -202,13 +255,24 @@ export default function SettingsTab() {
         </div>
       </div>
 
-      <button 
-        onClick={handleLogout}
-        className="w-full py-5 bg-red-50 text-red-500 rounded-[32px] font-black flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-red-100 border border-red-100 shadow-sm shadow-red-50"
-      >
-        <LogOut size={20} />
-        ログアウト
-      </button>
+      <div className="space-y-3 pt-2">
+        <button 
+          onClick={handleLogout}
+          className="w-full py-5 bg-red-50 text-red-500 rounded-[32px] font-black flex items-center justify-center gap-2 active:scale-[0.98] transition-all hover:bg-red-100 border border-red-100 shadow-sm shadow-red-50"
+        >
+          <LogOut size={20} />
+          ログアウト
+        </button>
+
+        <button 
+          onClick={handleDeleteAccount}
+          disabled={isLoading}
+          className="w-full py-4 text-gray-300 hover:text-red-400 font-bold text-[10px] flex items-center justify-center gap-1 transition-colors uppercase tracking-widest"
+        >
+          {isLoading ? <Loader2 className="animate-spin" size={12} /> : <Trash2 size={12} />}
+          アカウントを完全に削除する
+        </button>
+      </div>
 
       <p className="text-center text-[9px] font-bold text-gray-300 uppercase tracking-widest">
         Pashameshi v1.0.0

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, Trash2, Loader2, Calendar, X } from 'lucide-react';
+import { Plus, Trash2, Loader2, Calendar, X, Snowflake, Box, Thermometer } from 'lucide-react';
 
 export default function ShoppingList() {
   const [items, setItems] = useState<any[]>([]);
@@ -12,13 +12,12 @@ export default function ShoppingList() {
   // 期限選択モーダル用の状態
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [expiryDate, setExpiryDate] = useState('');
+  const [storageType, setStorageType] = useState('冷蔵'); // 保存場所の状態を追加
 
-  // リストの取得（決定表ルール適用）
   const fetchList = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1. プロフィールから所属グループを確認
     const { data: profile } = await supabase
       .from('profiles')
       .select('group_id')
@@ -28,11 +27,10 @@ export default function ShoppingList() {
     const groupId = profile?.group_id;
     let query = supabase.from('shopping_list').select('*');
 
-    // 2. 【決定表】グループがあれば共有モード、なければ個人モード
     if (groupId) {
-      query = query.eq('group_id', groupId); // 共有モード：グループ優先
+      query = query.eq('group_id', groupId);
     } else {
-      query = query.eq('user_id', user.id);    // 個人モード：自分のIDなら何でもOK
+      query = query.eq('user_id', user.id);
     }
 
     const { data } = await query.order('created_at', { ascending: false });
@@ -46,20 +44,17 @@ export default function ShoppingList() {
     setExpiryDate(d.toISOString().split('T')[0]);
   }, []);
 
-  // アイテム追加（決定表ルール適用）
   const addItem = async () => {
     if (!newItem.name) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 現在のグループ状況を確認
     const { data: profile } = await supabase
       .from('profiles')
       .select('group_id')
       .eq('id', user.id)
       .single();
 
-    // 保存時に user_id と group_id 両方をセット（解除後の持ち帰りのため）
     const { error } = await supabase.from('shopping_list').insert([{ 
       ...newItem, 
       user_id: user.id,
@@ -72,7 +67,6 @@ export default function ShoppingList() {
     }
   };
 
-  // 「完了（冷蔵庫へ移動）」の処理
   const handleConfirmMove = async () => {
     if (!selectedItem) return;
     setIsLoading(true);
@@ -87,9 +81,8 @@ export default function ShoppingList() {
         .single();
       
       const groupId = profile?.group_id;
-      const storageType = '冷蔵';
 
-      // 在庫テーブル内での既存チェック
+      // 保存場所 (storageType) を既存チェックの条件に含める
       let fetchQuery = supabase.from('ingredients').select('id, quantity')
         .eq('name', selectedItem.name)
         .eq('storage_type', storageType)
@@ -109,13 +102,12 @@ export default function ShoppingList() {
           .update({ quantity: existing.quantity + selectedItem.quantity })
           .eq('id', existing.id);
       } else {
-        // 新規登録時も user_id と group_id を両方保持
         await supabase.from('ingredients').insert([{
           name: selectedItem.name,
           quantity: selectedItem.quantity,
           unit: selectedItem.unit,
           expiry_date: expiryDate,
-          storage_type: storageType,
+          storage_type: storageType, // 選択された保存場所を使用
           genre: 'その他',
           user_id: user.id,
           group_id: groupId
@@ -157,9 +149,7 @@ export default function ShoppingList() {
               list="shopping-units" 
               value={newItem.unit} 
               onChange={(e) => setNewItem({...newItem, unit: e.target.value})} 
-              // フォーカス時に一旦空にする
               onFocus={(e) => e.target.value = ''}
-              // 何も入力されなかったら元の状態（newItem.unit）に戻す
               onBlur={(e) => { if(!e.target.value) e.target.value = newItem.unit }}
               className="w-full bg-transparent p-2 outline-none font-bold text-sm" 
             />
@@ -192,45 +182,63 @@ export default function ShoppingList() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-black text-gray-800">賞味期限を設定</h3>
+              <h3 className="font-black text-gray-800">在庫へ移動</h3>
               <button onClick={() => setSelectedItem(null)} className="text-gray-400"><X size={20}/></button>
             </div>
-            <p className="text-sm text-gray-500 mb-4 font-bold">「{selectedItem.name}」の期限</p>
-            <div className="relative mb-6">
-              {/* アイコンを配置し、クリックイベントを透過させる(pointer-events-none) */}
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-400 pointer-events-none z-10" size={18} />
-              <input 
-                type="date"
-                value={expiryDate}
-                onChange={(e) => setExpiryDate(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-orange-50 rounded-xl font-bold text-orange-600 outline-none focus:ring-2 focus:ring-orange-300 appearance-none"
-                style={{
-                  // iPhoneなどのSafariでカレンダーアイコンが重なるのを防ぐための指定
-                  WebkitAppearance: 'none',
-                  minHeight: '3rem'
-                }}
-              />
+            
+            <div className="space-y-5">
+              {/* 保存場所の選択 */}
+              <div>
+                <label className="text-[10px] text-gray-400 font-black ml-1 uppercase tracking-widest">Storage Type</label>
+                <div className="flex gap-2 mt-1 bg-gray-50 p-1 rounded-xl">
+                  {['冷蔵', '冷凍', '常温'].map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setStorageType(type)}
+                      className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[10px] font-black transition-all ${
+                        storageType === type 
+                          ? 'bg-white text-orange-500 shadow-sm' 
+                          : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                    >
+                      {type === '冷蔵' && <Snowflake size={12} />}
+                      {type === '冷凍' && <Box size={12} />}
+                      {type === '常温' && <Thermometer size={12} />}
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 期限設定 */}
+              <div>
+                <label className="text-[10px] text-gray-400 font-black ml-1 uppercase tracking-widest">Expiry Date</label>
+                <div className="relative mt-1">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-400 pointer-events-none z-10" size={18} />
+                  <input 
+                    type="date"
+                    value={expiryDate}
+                    onChange={(e) => setExpiryDate(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-orange-50 rounded-xl font-bold text-orange-600 outline-none focus:ring-2 focus:ring-orange-300 appearance-none"
+                    style={{ WebkitAppearance: 'none', minHeight: '3rem' }}
+                  />
+                </div>
+              </div>
+
+              <button 
+                onClick={handleConfirmMove}
+                disabled={isLoading}
+                className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-200 active:scale-95 transition flex items-center justify-center gap-2"
+              >
+                {isLoading ? <Loader2 className="animate-spin" /> : "冷蔵庫へ入れる"}
+              </button>
             </div>
-            <button 
-              onClick={handleConfirmMove}
-              disabled={isLoading}
-              className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-200 active:scale-95 transition flex items-center justify-center gap-2"
-            >
-              {isLoading ? <Loader2 className="animate-spin" /> : "冷蔵庫へ入れる"}
-            </button>
           </div>
         </div>
       )}
 
       <datalist id="shopping-units">
-          <option value="個" />
-          <option value="本" />
-          <option value="g" />
-          <option value="パック" />
-          <option value="枚" />
-          <option value="袋" />
-          <option value="玉" />
-          <option value="ml" />
+          <option value="個" /><option value="本" /><option value="g" /><option value="パック" /><option value="枚" /><option value="袋" /><option value="玉" /><option value="ml" />
       </datalist>
     </div>
   );
